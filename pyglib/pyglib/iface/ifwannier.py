@@ -383,7 +383,7 @@ def wannier_den_matrix(wannier_path="./"):
     wan_den = get_wannier_den_matrix_risb(bnd_vs, ferwes, wklist, nktot)
     if rank == 0:
         wrt_wan_den(wan_den, wfwannier_list, include_bands,
-                lh5="{}/wannier.dat".format(wannier_path))
+                fwannier="{}/wannier.dat".format(wannier_path))
 
 
 def wannier_den_matrix_lda_chk(wannier_path="./"):
@@ -416,7 +416,7 @@ def wannier_den_matrix_lda_chk(wannier_path="./"):
     wan_den = np.asarray(wan_den)
     wfwannier_list = np.asarray(wfwannier_list)
     wrt_wan_den(wan_den, wfwannier_list, include_bands,
-            lh5="{}/wannier.dat".format(wannier_path))
+            fwannier="{}/wannier.dat".format(wannier_path))
 
 
 def wannier_den_matrix_lda_chk2(wannier_path="./"):
@@ -441,7 +441,7 @@ def wannier_den_matrix_lda_chk2(wannier_path="./"):
             wfwannier_list[0][ik]))
     wan_den = np.asarray(wan_den)
     wrt_wan_den(wan_den, wfwannier_list, include_bands,
-            lh5="{}/wannier.dat".format(wannier_path))
+            fwannier="{}/wannier.dat".format(wannier_path))
 
 
 def wannier_den_matrix_lda_chk3(wannier_path="./"):
@@ -479,13 +479,14 @@ def wannier_den_matrix_lda_chk3(wannier_path="./"):
             bnd_ev2[0][ik].T.conj()))
     wan_den = np.asarray(wan_den)
     wrt_wan_den(wan_den, wfwannier_list, include_bands,
-            lh5="{}/wannier.dat".format(wannier_path))
+            fwannier="{}/wannier.dat".format(wannier_path))
 
 
-def wrt_wan_den(wan_den, wfwannier_list, include_bands, lh5=True):
-    if lh5:
-        h5wrt_wan_den(wan_den, wfwannier_list, include_bands)
-    else:
+def wrt_wan_den(wan_den, wfwannier_list, include_bands, fwannier=None):
+    try:
+        with h5py.File(fwannier, "r") as f:
+            h5wrt_wan_den(wan_den, wfwannier_list, include_bands)
+    except:
         fwrt_wan_den(wan_den, wfwannier_list, include_bands)
 
 

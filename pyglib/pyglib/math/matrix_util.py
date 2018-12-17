@@ -2,8 +2,8 @@
 Some commonly-used functions of matrix.
 """
 import numpy as np
-from numpy import linalg as LA
 import scipy.sparse as sps
+import scipy.linalg as slinalg
 from scipy.sparse import csr_matrix,csc_matrix
 from itertools import product
 
@@ -277,7 +277,7 @@ def yield_derivative_f_matrix(a, h_list, f, fp):
     a = \sum_{c} {c*h_list}. fp(x) = \par f(x) / \par x
     Yields \par f(a) / \par c.
     '''
-    w, v = LA.eigh(a)
+    w, v = np.linalg.eigh(a)
     vherm = np.conj(v.T)
     loewner = get_loewner_matrix_ev(w, f, fp)
     for h in h_list:
