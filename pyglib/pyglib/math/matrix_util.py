@@ -383,3 +383,43 @@ def get_hamilt_matrix_from_ev(w, v):
     for i in range(v.shape[0]):
         v[i] *= w
     return v.dot(vh)
+
+
+def solve_ab_plus_ba_equal_c(b, c):
+    '''solve for a given a*b + b*a = c and b is hermitian.
+    '''
+    err = np.max(np.abs(b-b.T.conj()))
+    if err > 1.e-8:
+        raise AssertionError("b not hermitian with error = {}!".format(err))
+    w,v = np.linalg.eigh(b)
+    cp = v.T.conj().dot(c).dot(v)
+    ap = [[cp[i,j]/(w[i]+w[j]) for j in range(b.shape[0])] \
+            for i in range(b.shape[0])]
+    a = v.dot(ap).dot(v.T.conj())
+    return a
+
+
+def get_1stderivative_sroot_entropyn_at_h(a, h):
+    '''
+    evaluate p_{\squareroot(a(1-a))} / p_h.
+    '''
+    k0 = a.dot(np.eye(a.shape[0])-a)
+    x0 = slinalg.sqrtm(k0)
+    k1 = h - a.dot(h) - h.dot(a)
+    res = solve_ab_plus_ba_equal_c(x0, k1)
+    return res
+
+
+def get_2ndderivative_sroot_entropyn_at_h(a, h1, h2):
+    '''
+    evaluate p2_{\squareroot(a(1-a))} / p_h1 / p_h2.
+    '''
+    p1 = get_1stderivative_sroot_entropyn_at_h(a, h1)
+    p2 = get_1stderivative_sroot_entropyn_at_h(a, h2)
+    k2 = -h1.dot(h2) - h2.dot(h1)
+    c = k2 - (p1.dot(p2) + p2.dot(p1))
+    k0 = a.dot(np.eye(a.shape[0])-a)
+    x0 = slinalg.sqrtm(k0)
+    res = solve_ab_plus_ba_equal_c(x0, c)
+    return res
+
