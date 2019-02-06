@@ -1,1 +1,1 @@
-import bandstruct, dos
+from . import bandstruct, dos
