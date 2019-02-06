@@ -70,8 +70,13 @@ def check_exact_diag(qop, aux_qops=None):
 def qc_solver(h_qop, num_spin_orbitals, num_particles, map_type, \
         qubit_reduction, aux_qops=None):
     # backends = Aer.backends()
-    # backends = IBMQ.backends()
-    backend = Aer.get_backend('statevector_simulator')
+    backends = IBMQ.backends(simulator=False)
+    print(backends)
+    # backend = IBMQ.get_backend('ibmq_qasm_simulator')
+    # backend = IBMQ.get_backend('ibmq_16_melbourne')
+
+    # backend = Aer.get_backend('statevector_simulator')
+    backend = Aer.get_backend('qasm_simulator')
 
     # setup COBYLA optimizer
     max_eval = 1000
@@ -89,7 +94,8 @@ def qc_solver(h_qop, num_spin_orbitals, num_particles, map_type, \
     # setup VQE
     vqe = VQE(h_qop, var_form, cobyla, operator_mode='matrix', \
             aux_operators=aux_qops)
-    quantum_instance = QuantumInstance(backend=backend)
+    quantum_instance = QuantumInstance(backend=backend, shots=1024,
+            max_credits=10)
     ret = vqe.run(quantum_instance)
     print(ret['aux_ops'])
     print('The computed ground state energy is: {:.12f}'.format(\
@@ -137,9 +143,15 @@ def qcalc_e_dm(h1e, h2e, check_ed=False, map_type="parity"):
 
 
 if __name__=="__main__":
-    n = 2
+    # n = 2
+    # h1e = numpy.zeros([n ,n])
+    # h1e[0,1] = h1e[1,0] = -1.
+    # h2e = numpy.zeros([n, n, n, n])
+    # h2e[0,0,0,0] = 2.
+    # qcalc_e_dm(h1e, h2e, check_ed=True)
+    n = 4
     h1e = numpy.zeros([n ,n])
-    h1e[0,1] = h1e[1,0] = -1.
+    h1e[0,2] = h1e[2,0] = h1e[1,3] = h1e[3,1] = -1.
     h2e = numpy.zeros([n, n, n, n])
-    h2e[0,0,0,0] = 2.
+    h2e[0,0,0,0] = h2e[1,1,1,1] = 2.
     qcalc_e_dm(h1e, h2e, check_ed=True)
