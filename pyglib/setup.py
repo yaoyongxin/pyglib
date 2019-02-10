@@ -41,6 +41,6 @@ setup(
     #packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     packages=["pyglib"],
 
-    install_requires=['numpy', 'scipy', "pymatgen"],
+    install_requires=['numpy', 'scipy', "pymatgen", "mpi4py", "future"],
 
 )

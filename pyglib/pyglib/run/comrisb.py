@@ -38,7 +38,12 @@ def read_comrisb_ini():
 
     open_h_log(control)
 
-    control['comsuitedir'] = os.environ.get('COMSUITE_BIN')
+    if 'comsuitedir' not in control:
+        control['comsuitedir'] = os.environ.get('COMSUITE_BIN')
+    if control['comsuitedir'] is None:
+        raise Exception("please set comsuitedir either in environ var or "+\
+                "comdmft.ini!")
+
     control['conv_table'] = []
 
     # in control
@@ -564,7 +569,8 @@ def gwannier_run(control, wan_hmat, imp, icycle):
         init_grisb(control, imp)
 
     cmd = control['mpi_prefix_wannier'] + ' ' + \
-            control['comsuitedir'] + "/CyGutz -r 0"
+            control['comsuitedir'] + "/CyGutz -r 0 " + \
+            "-p " + control['comsuitedir']
     control['h_log'].write(cmd+"\n")
     hlog_time(control['h_log'], "cygutz start")
     with open(control['lowh_directory']+'/grisb.out', 'w') as f:
