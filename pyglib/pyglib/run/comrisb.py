@@ -667,19 +667,19 @@ def dft_risb(control, wan_hmat, imp):
 
 
 def log_time(control):
-    control['h_log'].write("timings:")
-    control['h_log'].write("  rspflapw : {:.1f}s".format(\
+    control['h_log'].write("\ntimings:\n")
+    control['h_log'].write("  rspflapw : {:.1f}s\n".format(\
             control['t_rspflapw']))
-    control['h_log'].write("  comwann  : {:.1f}s".format(\
+    control['h_log'].write("  comwann  : {:.1f}s\n".format(\
             control['t_comwann']))
-    control['h_log'].write("  interface: {:.1f}s".format(\
+    control['h_log'].write("  interface: {:.1f}s\n".format(\
             control['t_interface']))
-    control['h_log'].write("  cygutz   : {:.1f}s".format(\
+    control['h_log'].write("  cygutz   : {:.1f}s\n".format(\
             control['t_cygutz']))
-    control['h_log'].write("  subtotal : {:.1f}s".format(\
+    control['h_log'].write("  subtotal : {:.1f}s\n".format(\
             control['t_rspflapw']+control['t_comwann']+\
             control['t_interface']+control['t_cygutz']))
-    control['h_log'].write("  total    : {:.1f}s".format(\
+    control['h_log'].write("  total    : {:.1f}s\n".format(\
             control['t_total']))
 
 
