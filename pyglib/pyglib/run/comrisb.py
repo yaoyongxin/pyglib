@@ -12,17 +12,6 @@ def open_h_log(control):
             "             ComRISB\n" +
             "*********************************\n\n")
 
-    control['h_conv'] = open('./convergence.log', 'w', 0)
-    control['h_conv'].write(
-            "\n*********************************\n" +
-            "             ComRISB\n" +
-            "*********************************\n\n")
-
-
-def close_h_log(control):
-    control['h_log'].close()
-    control['h_conv'].close()
-
 
 def read_comrisb_ini():
     vglobl = {}
@@ -35,6 +24,13 @@ def read_comrisb_ini():
     control['name'] = 'control'
     wan_hmat['name'] = 'wan_hmat'
     imp['name'] = 'imp'
+
+    # timing
+    control['t_rspflapw'] = 0.
+    control['t_comwann'] = 0.
+    control['t_interface'] = 0.
+    control['t_cygutz'] = 0.
+    control['t_total'] = 0.
 
     open_h_log(control)
 
@@ -60,13 +56,17 @@ def read_comrisb_ini():
     control['lnewton'] = control.get('lnewton', 0)
     control['spin_polarization'] = control.get('spin_polarization', False)
     control['unit'] = control.get('unit', 'ev')
+    # electron density convergence criteria
+    control['cc'] = control.get('cc', 1.e-4)
+    # total energy convergence criteria
+    control['ec'] = control.get('ec', 1.e-5)
 
     control['max_iter_num_impurity'] = control.get('max_iter_num_impurity', 1)
-    control['max_iter_num_outer'] = control.get('max_iter_num_outer', 50)
+    control['max_iter_num_outer'] = control.get('max_iter_num_outer', 20)
     control["initial_dft_dir"] = control.get('initial_dft_dir', "../dft/")
     control['initial_dft_dir'] = os.path.abspath(control['initial_dft_dir'])
     control['allfile'] = find_allfile(control['initial_dft_dir'])
-    control['h_conv'].write('allfile = {}\n'.format(control['allfile']))
+    control['h_log'].write('allfile = {}\n'.format(control['allfile']))
     control["mpi_prefix"] = control.get('mpi_prefix', "")
     control["mpi_prefix_wannier"] = control.get('mpi_prefix_wannier', \
             control["mpi_prefix"])
@@ -81,7 +81,7 @@ def read_comrisb_ini():
 
     if control['additional_unitary_transform_impurity'] != 0:
         check_key_in_string('metal_threshold', control)
-        control['h_conv'].write(
+        control['h_log'].write(
                 'impurity_orb_equivalence overwritten to be independent.\n')
 
     control['restart'] = control.get('restart', False)
@@ -119,16 +119,13 @@ def read_comrisb_ini():
 
     # in wan_hmat
     wan_hmat["kgrid"] = wan_hmat.get("kgrid", None)
-    check_key_in_string('froz_win_min', wan_hmat)
     check_key_in_string('froz_win_max', wan_hmat)
-    wan_hmat['dis_win_min'] = wan_hmat.get('dis_win_min',
-            wan_hmat['froz_win_min'])
     wan_hmat['dis_win_max'] = wan_hmat.get('dis_win_max',
             wan_hmat['froz_win_max']+40.0)
-    control['proj_win_min'] = control.get('proj_win_min',
-            wan_hmat['froz_win_min'])
+
     control['proj_win_max'] = control.get('proj_win_max',
             wan_hmat['froz_win_max'])
+
     wan_hmat['num_iter'] = wan_hmat.get('num_iter', 0)
     wan_hmat['dis_num_iter'] = wan_hmat.get('dis_num_iter', 100)
 
@@ -257,6 +254,10 @@ def initial_lattice_directory_setup(control):
         shutil.copy(filename, './')
     if os.path.exists(control['initial_dft_dir']+'/kpath'):
         shutil.copy(control['initial_dft_dir']+'/kpath', './')
+    if os.path.exists(control['initial_dft_dir']+'/wannier_win.dat'):
+        shutil.copy(control['initial_dft_dir']+'/wannier_win.dat', './')
+    else:
+        raise ValueError("wannier_win.dat file not exists!")
     if os.path.exists(control['initial_dft_dir']+'/ini'):
         shutil.copy(control['initial_dft_dir']+'/ini', './')
     else:
@@ -271,6 +272,10 @@ def initial_lattice_directory_setup(control):
 
 
 def create_comwann_ini(control, wan_hmat):
+    line = open(control['lattice_directory']+"/wannier_win.dat","rb").\
+            readline()
+    # prefixed win_min
+    wan_hmat['dis_win_min'] = wan_hmat['froz_win_min'] = float(line.split()[1])
     with open('comwann.ini', 'w') as f:
         f.write(control['lattice_directory']+'\n')
         f.write('dft\n')
@@ -346,12 +351,12 @@ def write_conv(control):
         w = np.linalg.eigvalsh(zmat)
         zmin = min(zmin, np.amin(w))
     control['conv_table'][-1].append(zmin)
-    with open(control['top_dir']+'/convergence.log', 'w') as outputfile:
-        outputfile.write(tabulate(control['conv_table'], \
-                headers=['i_outer', \
-                'delta_rho', 'etot', "mu", 'err_risb', "min_z"], \
-                numalign="right",  floatfmt=".8f"))
     os.chdir(control['top_dir'])
+    with open("convergence.log", "wb") as f:
+        f.write(tabulate(control['conv_table'], \
+                headers=['i_outer', 'delta_rho', 'etot', "mu", \
+                'err_risb', "min_z"], \
+                numalign="right",  floatfmt=".8f"))
 
 
 def check_wannier_function_input(control, wan_hmat):
@@ -367,11 +372,16 @@ def run_dft(control):
     iter_string = '_'+str(control['iter_num_outer'])
     cmd = control['mpi_prefix_lattice'] + ' ' + \
             control['comsuitedir'] + "/rspflapw.exe"
+    hlog_time(control['h_log'], "rspflapw start")
+    t_start = time.time()
     with open(control['lattice_directory']+'/dft.out', 'w') as logfile:
-        ret = subprocess.call(cmd, shell=True, stdout = logfile, \
-                stderr = logfile)
+        ret = subprocess.call(cmd, shell=True, stdout=logfile, \
+                stderr=logfile)
         if ret != 0:
             raise ValueError("Error in dft. Check dft.out for error message.")
+    hlog_time(control['h_log'], "rspflapw end")
+    t_end = time.time()
+    control['t_rspflapw'] += t_end-t_start
     allfile=control['allfile']
     labeling_file('./'+allfile+'.out',iter_string)
     shutil.move('./dft.out', './dft'+iter_string+'.out')
@@ -398,6 +408,7 @@ def wannier_run(control,wan_hmat,fullrun=True):
         control['h_log'].write(cmd+"\n")
 
         hlog_time(control['h_log'], "comwann start")
+        t_start = time.time()
         with open(control['wannier_directory']+'/comwann.out', 'w') \
                 as logfile:
             ret = subprocess.call(cmd, shell=True, stdout = logfile, \
@@ -406,6 +417,8 @@ def wannier_run(control,wan_hmat,fullrun=True):
                 raise ValueError(
                         "Error in comwann. Check comwann.out or OUT.")
         hlog_time(control['h_log'], "end", endl="\n")
+        t_end = time.time()
+        control['t_comwann'] += t_end-t_start
 
         iter_string = '_' + str(control['iter_num_outer'])
         shutil.move('./wannier.wout', './wannier'+iter_string+'.wout')
@@ -559,10 +572,13 @@ def gwannier_run(control, wan_hmat, imp, icycle):
             control['comsuitedir'] + "/gwannier.py"
     control['h_log'].write(cmd+"\n")
     hlog_time(control['h_log'], "gwannier start")
+    t_start = time.time()
     with open(control['lowh_directory']+'/gwannier.out', 'w') as f:
         ret = subprocess.call(cmd, shell=True, stdout = f, \
                 stderr = f)
     hlog_time(control['h_log'], "end", endl="\n")
+    t_end = time.time()
+    control['t_interface'] += t_end-t_start
     assert ret == 0, "Error in gwannier. Check gwannier.out."
 
     if icycle <= 1:
@@ -573,10 +589,13 @@ def gwannier_run(control, wan_hmat, imp, icycle):
             "-p " + control['comsuitedir']
     control['h_log'].write(cmd+"\n")
     hlog_time(control['h_log'], "cygutz start")
+    t_start = time.time()
     with open(control['lowh_directory']+'/grisb.out', 'w') as f:
         ret = subprocess.call(cmd, shell=True, stdout = f, \
                 stderr = f)
     hlog_time(control['h_log'], "end", endl="\n")
+    t_end = time.time()
+    control['t_cygutz'] += t_end-t_start
     assert ret == 0, "Error in grisb. Check grisb.out."
     shutil.copy("./WH_RL_OUT.h5", "./WH_RL_INP.h5")
     shutil.copy("./GUTZ.LOG", "SAVE_GUTZ.LOG")
@@ -585,10 +604,13 @@ def gwannier_run(control, wan_hmat, imp, icycle):
             control['comsuitedir'] + "/gwannden.py"
     control['h_log'].write(cmd+"\n")
     hlog_time(control['h_log'], "gwannden start")
+    t_start = time.time()
     with open(control['lowh_directory']+'/gwannden.out', 'w') as f:
         ret = subprocess.call(cmd, shell=True, stdout = f, \
                 stderr = f)
     hlog_time(control['h_log'], "end", endl="\n")
+    t_end = time.time()
+    control['t_interface'] += t_end-t_start
     assert ret == 0, "Error in gwannden. Check gwannden.out."
     os.chdir(control['top_dir'])
 
@@ -634,12 +656,40 @@ def dft_risb(control, wan_hmat, imp):
         if control['end_prog'] in ["dft"]:
             break
         write_conv(control)
+        # convergence
+
+        if control['iter_num_outer'] > 1 and \
+                control['conv_table'][-1][1] < control['cc'] and \
+                abs(control['conv_table'][-1][2]- \
+                control['conv_table'][-2][2]) < control['ec']:
+            break
         control['iter_num_outer']=control['iter_num_outer']+1
+
+
+def log_time(control):
+    control['h_log'].write("timings:")
+    control['h_log'].write("  rspflapw : {:.1f}s".format(\
+            control['t_rspflapw']))
+    control['h_log'].write("  comwann  : {:.1f}s".format(\
+            control['t_comwann']))
+    control['h_log'].write("  interface: {:.1f}s".format(\
+            control['t_interface']))
+    control['h_log'].write("  cygutz   : {:.1f}s".format(\
+            control['t_cygutz']))
+    control['h_log'].write("  subtotal : {:.1f}s".format(\
+            control['t_rspflapw']+control['t_comwann']+\
+            control['t_interface']+control['t_cygutz']))
+    control['h_log'].write("  total    : {:.1f}s".format(\
+            control['t_total']))
 
 
 
 if __name__ == '__main__':
+    t_start = time.time()
     control,wan_hmat,imp = read_comrisb_ini()
     initial_file_directory_setup(control)
     dft_risb(control, wan_hmat, imp)
-    close_h_log(control)
+    t_end = time.time()
+    control['t_total'] = t_end-t_start
+    log_time(control)
+    control['h_log'].close()
