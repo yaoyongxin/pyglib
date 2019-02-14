@@ -37,5 +37,5 @@ setup(
     ],
     packages=["pyglib"],
     install_requires=['numpy', 'scipy', "pymatgen", "mpi4py", "future", \
-            "matplotlib"],
+            "matplotlib", 'h5py'],
 )
