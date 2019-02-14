@@ -36,5 +36,6 @@ setup(
         'Programming Language :: Python :: 2.7',
     ],
     packages=["pyglib"],
-    install_requires=['numpy', 'scipy', "pymatgen", "mpi4py", "future"],
+    install_requires=['numpy', 'scipy', "pymatgen", "mpi4py", "future", \
+            "matplotlib"],
 )
