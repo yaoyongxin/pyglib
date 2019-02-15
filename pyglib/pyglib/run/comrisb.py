@@ -60,6 +60,9 @@ def read_comrisb_ini():
     control['cc'] = control.get('cc', 1.e-4)
     # total energy convergence criteria
     control['ec'] = control.get('ec', 1.e-5)
+    control['ismear'] = control.get('ismear', -1)
+    # default 300K to eV
+    control['delta'] = control.get('delta', 300./11604.52500617)
 
     control['max_iter_num_impurity'] = control.get('max_iter_num_impurity', 1)
     control['max_iter_num_outer'] = control.get('max_iter_num_outer', 20)
@@ -560,6 +563,8 @@ def gwannier_run(control, wan_hmat, imp, icycle):
     params["wpath"] = control['wannier_directory']
     params["lrot_list"] = lrot_list
     params["icycle"] = icycle
+    params["ismear"] = control['ismear']
+    params["delta"] = control['delta']
     if control['spin_orbit']:
         params["iso"] = 2
     params["lprefix"] = control['allfile']
